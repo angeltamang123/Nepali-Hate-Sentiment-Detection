@@ -2,13 +2,10 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 import numpy as np
 
-def train_test_val_split(dataset, embedding_column, test_size=0.1, val_size=0.1, random_state=42):
+def train_test_val_split(dataset, test_size=0.1, val_size=0.1, random_state=42):
     """
     Split the dataset into training, testing, and validation sets in an 8:1:1 ratio.
     """
-    # Convert the embeddings into separate columns
-    embeddings_df = pd.concat([dataset[embedding_column].apply(pd.Series)], axis=1)
-    dataset = pd.concat([dataset.drop(embedding_column, axis=1), embeddings_df], axis=1)
 
     # Split into X and y
     X = dataset.drop('Target', axis=1)  # all columns except the 'Target' column

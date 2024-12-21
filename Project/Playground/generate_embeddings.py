@@ -7,12 +7,13 @@ def load_word2vec_model(path):
     """
     Load a Word2Vec model from the given path.
     """
-    return Word2Vec.load(path)
+    return KeyedVectors.load_word2vec_format(path, binary=False)
+
 
 def generate_word2vec_embeddings(df, text_column, word2vec_model):
     def text_to_embedding(text):
         words = text.split()
-        valid_word_vectors = [word2vec_model.wv[word] for word in words if word in word2vec_model.wv]
+        valid_word_vectors = [word2vec_model[word] for word in words if word in word2vec_model]
         if valid_word_vectors:
             return np.mean(valid_word_vectors, axis=0)
         else:
@@ -23,10 +24,14 @@ def generate_word2vec_embeddings(df, text_column, word2vec_model):
     else:
         print("word2vec_embeddings column already exists. Appending new embeddings.")
         df['word2vec_embeddings'] = df[text_column].apply(text_to_embedding)
-    
-      # Move the 'Target' column to the last position
+
+     # Convert the embeddings into separate columns
+    embeddings_df = pd.concat([df["word2vec_embeddings"].apply(pd.Series)], axis=1)
+    df = pd.concat([df.drop('word2vec_embeddings', axis=1), embeddings_df], axis=1)    
+
+     # Move the 'Target' column to the last position
     df = df[[col for col in df if col != 'Target'] + ['Target']]
-    
+
     return df
 
 def load_fasttext_model(path):
@@ -49,8 +54,12 @@ def generate_fasttext_embeddings(df, text_column, fasttext_model):
     else:
         print("fasttext_embeddings column already exists. Appending new embeddings.")
         df['fasttext_embeddings'] = df[text_column].apply(text_to_embedding)
-    
-      # Move the 'Target' column to the last position
+
+    # Convert the embeddings into separate columns
+    embeddings_df = pd.concat([df["fasttext_embeddings"].apply(pd.Series)], axis=1)
+    df = pd.concat([df.drop('fasttext_embeddings', axis=1), embeddings_df], axis=1)    
+
+    # Move the 'Target' column to the last position
     df = df[[col for col in df if col != 'Target'] + ['Target']]
     
     return df
@@ -77,7 +86,11 @@ def generate_glove_embeddings(df, text_column, embeddings_dict):
     
     # Add the glove_embeddings column to the DataFrame
     df['glove_embeddings'] = df[text_column].apply(text_to_embedding)
-    
+
+     # Convert the embeddings into separate columns
+    embeddings_df = pd.concat([df["glove_embeddings"].apply(pd.Series)], axis=1)
+    df = pd.concat([df.drop('glove_embeddings', axis=1), embeddings_df], axis=1)  
+
     # Move the 'Target' column to the last position
     df = df[[col for col in df if col != 'Target'] + ['Target']]
     
