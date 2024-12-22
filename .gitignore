@@ -164,3 +164,4 @@ Project/Data/Embeddings/fasttext_embeddings.model.wv.vectors_ngrams.npy
 Project/LASER/
 Project/Data/Embeddings/nepali_embeddings_word2vec.txt
 
+Project/Data/Embeddings/finetuned_word2vec_embeddings.txt
