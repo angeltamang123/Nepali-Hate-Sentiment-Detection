@@ -64,25 +64,21 @@ def generate_fasttext_embeddings(df, text_column, fasttext_model):
     
     return df
 
-def load_glove_embeddings_dict(path):
-    embeddings_dict = {}
-    with open(path, 'r') as f:
-        for line in f:
-            values = line.split()
-            word = values[0]
-            vector = np.asarray(values[1:], "float32")
-            embeddings_dict[word] = vector
-    return embeddings_dict
+def load_glove_embeddings(path):
+    """
+    Load a Glove model from the given path.
+    """
+    return KeyedVectors.load_word2vec_format(path, binary=False)
 
 # Function to generate glove embeddings
-def generate_glove_embeddings(df, text_column, embeddings_dict):
+def generate_glove_embeddings(df, text_column, Glove):
     def text_to_embedding(text):
         words = text.split()
-        valid_word_vectors = [embeddings_dict[word] for word in words if word in embeddings_dict]
+        valid_word_vectors = [Glove[word] for word in words if word in Glove]
         if valid_word_vectors:
             return np.mean(valid_word_vectors, axis=0)
         else:
-            return np.zeros(len(next(iter(embeddings_dict.values()))))  # Return zero vector if no word matches
+            return np.zeros(Glove.vector_size)  # Return zero vector if no word matches
     
     # Add the glove_embeddings column to the DataFrame
     df['glove_embeddings'] = df[text_column].apply(text_to_embedding)

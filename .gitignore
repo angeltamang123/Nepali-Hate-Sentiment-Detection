@@ -164,3 +164,8 @@ Project/Part 1/Data/Embeddings/fasttext_embeddings.model.wv.vectors_ngrams.npy
 Project/Part 1/Data/Embeddings/nepali_embeddings_word2vec.txt
 
 Project/Part 1/Data/Embeddings/finetuned_word2vec_embeddings.txt
+kaggle.json
+
+Project/Part 2/Data/Embeddings/glove_word2vec_format.txt
+Project/Part 2/Data/Embeddings/processed_tokenized_stemmed.glove
+Project/Part 2/Data/Embeddings/processed_tokenized_stemmed.glove.txt
