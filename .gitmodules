@@ -1,0 +1,3 @@
+[submodule "majorProject"]
+	path = majorProject
+	url = https://github.com/Regmii/majorProject.git
