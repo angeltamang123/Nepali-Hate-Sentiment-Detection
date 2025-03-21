@@ -175,4 +175,14 @@ important Papers
 Project/sentence_embeddings.drawio
 Project/SONAR/Sonar_diagram.drawio
 Project/WBD.drawio
-
+Project/Post-Defense/Data/fasttext_model
+Project/Post-Defense/Data/fasttext_model.wv.vectors_ngrams.npy
+Project/Post-Defense/Data/fasttext_scratch_dataset.csv
+Project/Post-Defense/Data/NepSa_minority_data.csv
+Project/Post-Defense/Data/NepSA++.csv
+Project/Post-Defense/Data/Word2vec_scratch_dataset.csv
+Project/Post-Defense/Data/Word2Vec_scratch_embeddings.txt
+Project/Post-Defense/Word Embeddings/Classification_with_word_embeddings_v2.ipynb
+Project/Post-Defense/Word Embeddings/dnn_classifier
+Project/Post-Defense/Word Embeddings/dnn_classifier.png
+Project/Post-Defense/Word Embeddings/dnn_classifier.pth
