@@ -171,7 +171,7 @@ Project/Word Embeddings Part 2/Data/Embeddings/processed_tokenized_stemmed.glove
 Project/Word Embeddings Part 2/Data/Embeddings/processed_tokenized_stemmed.glove.txt
 Project/Word Embeddings Part 2/Data/Embeddings/fasttext_model.wv.vectors_ngrams.npy
 
-important Papers
+important Papers/
 Project/sentence_embeddings.drawio
 Project/SONAR/Sonar_diagram.drawio
 Project/WBD.drawio
@@ -186,3 +186,6 @@ Project/Post-Defense/Word Embeddings/Classification_with_word_embeddings_v2.ipyn
 Project/Post-Defense/Word Embeddings/dnn_classifier
 Project/Post-Defense/Word Embeddings/dnn_classifier.png
 Project/Post-Defense/Word Embeddings/dnn_classifier.pth
+
+nephased/word_embeddings_prototype/Data/NepSA++.csv
+nephased/word_embeddings_prototype/Models/
