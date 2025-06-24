@@ -78,7 +78,7 @@ class ResLSTMLayer(nn.Module):
 
 class ResLSTM(nn.Module):
     """
-    A multi-layer Residual LSTM that can be configured to be bidirectional
+    A multi-layer Residual LSTM that can be confiNgured to be bidirectional
     """
     def __init__(self, input_dim, hidden_dim, num_layers, dropout=0, batch_first=False, bidirectional=False):
         super().__init__()
