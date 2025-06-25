@@ -15,9 +15,7 @@ import pickle
 import mlflow
 from torch.optim.lr_scheduler import CosineAnnealingLR
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-def model_train(model, criterion, optimizer, train_loader, val_loader,scheduler=None, 
+def model_train(model, criterion, optimizer, train_loader, val_loader,device, scheduler=None, 
                 save_name=None, epochs=20, patience=3, early_stopping=False, dnn=False, model2=False):
     '''
         Deep Network training function which excpects model, criterion, scheuler, train data loader and val data loader
@@ -192,6 +190,7 @@ def model_train(model, criterion, optimizer, train_loader, val_loader,scheduler=
         print(f"Training curves(Loss, accuracy, macro f1) will be saved as {save_name}_curves.png")
         plt.savefig(plot_path, bbox_inches='tight', dpi=300)
     plt.show()
+    plt.close()
 
     # Load best model weights
     model.load_state_dict(best_model_weights)
@@ -206,10 +205,11 @@ def model_train(model, criterion, optimizer, train_loader, val_loader,scheduler=
     return model, train_losses, val_losses, train_f1s, val_f1s, plot_path, model_path
 
 
-def evaluate_model(model, test_loader, label_map=None, save_name = None, dnn=False, model2=False):
+def evaluate_model(model, test_loader, device, label_map=None, save_name = None, dnn=False, model2=False):
     '''
         Use save_name to version control
         when save_name is given returns classification report dict
+        Returns: tuple (classification_dict, pr_path, cm_path, all_labels, all_preds)
     '''
     model.eval()  # Set model to evaluation mode
     all_labels = []
@@ -281,6 +281,7 @@ def evaluate_model(model, test_loader, label_map=None, save_name = None, dnn=Fal
         print(f"PR curve will be saved as {save_name}_PR.png")
         plt.savefig(pr_path, bbox_inches='tight', dpi=300)
     plt.show()
+    plt.close()
 
     # Confusion Matrix 
     cm = confusion_matrix(all_labels, all_preds)
@@ -306,11 +307,12 @@ def evaluate_model(model, test_loader, label_map=None, save_name = None, dnn=Fal
         plt.savefig(cm_path, bbox_inches='tight', dpi=300)
     
     plt.show()
+    plt.close()
 
     if save_name:
         classification_dict = classification_report(all_labels, all_preds, output_dict=True)
         classification_dict["mcc"] = mcc
-        return classification_dict, pr_path, cm_path
+        return classification_dict, pr_path, cm_path, all_labels, all_preds
 
 class DNNModifiedDataset(Dataset):
     '''
@@ -469,10 +471,11 @@ class ResBiLSTMAttn_prev(nn.Module):
     def __init__(self, input_dim, hidden_dim, num_classes, num_layers=1, dropout=0.5, bidirectional=True):
         super().__init__()
         self.lstm = ResLSTM_previous(input_dim, hidden_dim,num_layers, batch_first=True, bidirectional = bidirectional)
-        self.ln = nn.LayerNorm(hidden_dim * 2)
+        self.direction = 2 if bidirectional else 1
+        self.ln = nn.LayerNorm(hidden_dim * self.direction)
         self.dropout = nn.Dropout(dropout)
-        self.attn = nn.Linear(hidden_dim*2 , 1)
-        self.fc = nn.Linear(hidden_dim *2, num_classes)
+        self.attn = nn.Linear(hidden_dim * self.direction , 1)
+        self.fc = nn.Linear(hidden_dim * self.direction, num_classes)
 
     def forward(self, x, mask):
         lstm_out, _ = self.lstm(x)  # (Batch, SequenceLength, 2 * Hidden Dim)
@@ -515,7 +518,7 @@ def save_temp_file(data, filename_prefix, artifact_subdir):
         pickle.dump(data, f)
     return temp_path
 
-def run_cross_validation(arch_config, full_dataset, all_labels_for_skf, device, label_map, n_splits=5):
+def run_cross_validation(arch_config, full_dataset, all_labels_for_skf, device, label_map, n_splits=5, num_classes=4):
     '''
         arch_config: dict = {
             "name" : Name to save and name run in Mlflow,
@@ -531,8 +534,15 @@ def run_cross_validation(arch_config, full_dataset, all_labels_for_skf, device, 
         },
         full_dataset: full dataset that is not split,
         all_labels_for_skf: all the labels retreived and made numpy array from full dataset,
+        device: device to train and evaluate the model on
         label_map: label map for int class values,
         n_splits: defaults 5 which splits 80:20 for in each train and val split in each fold
+
+        ------
+
+        return: dict - containing 
+                        - arch_name : name passed at arch_config["name"]
+                        - fold_metrics: list of dicts, where individual dict has train, val losses, f1-score list for each epoch and fold labels and preds for Out of Fold prediction
     '''
     if arch_config["name"] is None or not isinstance(arch_config["name"],str):
         raise ValueError("Provide name for the arch_config")
@@ -559,6 +569,9 @@ def run_cross_validation(arch_config, full_dataset, all_labels_for_skf, device, 
         fold_final_reports = [] # To store final evaluation reports for aggregation
         metrics_for_plotting = [] # To store epoch-wise metrics from each fold for avg/std plotting
 
+        overall_oof_labels = [] # To collect true labels across all folds for final OOF evaluation
+        overall_oof_preds = []  # To collect predictions across all folds for final OOF evaluation
+
         # Apply dataset wrapper if specified
         current_full_dataset = full_dataset
 
@@ -574,9 +587,35 @@ def run_cross_validation(arch_config, full_dataset, all_labels_for_skf, device, 
             train_loader = DataLoader(train_subset, batch_size=arch_config["params"]["train_batch"], shuffle=True)
             val_loader = DataLoader(val_subset, batch_size=arch_config["params"]["val_batch"], shuffle=False)
 
+            # Extract model-specific parameters
+            model_params_to_pass = {}
+            if arch_config["is_dnn"]:
+                # DNN has specific params like input_neurons, hidden_neurons
+                model_params_to_pass = {
+                    "input_dim": arch_config["params"]["input_dim"],
+                    "output_dim": arch_config["params"]["output_dim"],
+                    "input_neurons": arch_config["params"]["input_neurons"],
+                    "hidden_neurons": arch_config["params"]["hidden_neurons"],
+                    "input_dropout": arch_config["params"].get("input_dropout", 0.3), # Use .get for optional
+                    "hidden_dropout": arch_config["params"].get("hidden_dropout", 0.3)
+                }
+            else: # LSTM-based models (BiLSTMAttn, BiLSTMAttn2, ResBiLSTMAttn_prev2)
+                model_params_to_pass = {
+                    "input_dim": arch_config["params"]["input_dim"],
+                    "hidden_dim": arch_config["params"]["hidden_dim"],
+                    "num_classes": arch_config["params"]["num_classes"],
+                    "num_layers": arch_config["params"]["num_layers"],
+                    "dropout": arch_config["params"]["dropout"],
+                    "bidirectional": arch_config["params"]["bidirectional"],
+                }
+                # Add lstm_dropout and residual if relevant for BiLSTMAttn
+                if arch_config["model_class"] == BiLSTMAttn:
+                    model_params_to_pass["lstm_dropout"] = arch_config["params"].get("lstm_dropout", 0)
+                    model_params_to_pass["residual"] = arch_config["params"].get("residual", False)
+
             # --- Initialize Model, Optimizer, Criterion for this Fold ---
             # Each fold gets a fresh model instance to avoid data leakage
-            model = arch_config["model_class"](**arch_config["params"])
+            model = arch_config["model_class"](**model_params_to_pass)
             criterion = nn.CrossEntropyLoss(label_smoothing = arch_config["params"]["label_smoothing"])
             optimizer = torch.optim.Adam(model.parameters(), lr=arch_config["params"]["lr"]) if arch_config["is_dnn"] else torch.optim.AdamW(model.parameters(), lr=arch_config["params"]["lr"], weight_decay=arch_config["params"]["weight_decay"])
             
@@ -614,13 +653,12 @@ def run_cross_validation(arch_config, full_dataset, all_labels_for_skf, device, 
 
                 # Log epoch-wise metrics from train_output to child run artifacts
                 mlflow.log_artifact(
-                    local_path=save_temp_file({"train_losses": train_losses, "val_losses": val_losses},
-                                              f"{architecture_name}_fold_{fold_idx+1}_losses.pkl", "metrics_raw"),
-                    artifact_path="metrics_raw"
-                )
-                mlflow.log_artifact(
-                    local_path=save_temp_file({"train_f1s": train_f1s, "val_f1s": val_f1s},
-                                              f"{architecture_name}_fold_{fold_idx+1}_f1s.pkl", "metrics_raw"),
+                    local_path=save_temp_file({
+                        "train_losses": train_losses,
+                        "val_losses": val_losses,
+                        "train_f1s": train_f1s,
+                        "val_f1s": val_f1s
+                    }, f"{architecture_name}_fold_{fold_idx+1}_training_metrics.pkl", "metrics_raw"),
                     artifact_path="metrics_raw"
                 )
 
@@ -631,9 +669,10 @@ def run_cross_validation(arch_config, full_dataset, all_labels_for_skf, device, 
                 print(f"  Logged best model for Fold {fold_idx+1} to artifacts/model_weights/{model_path}")
 
                 # --- Evaluate Model for this Fold ---
-                eval_report_dict, pr_plot_path, cm_plot_path = evaluate_model(
+                eval_report_dict, pr_plot_path, cm_plot_path, fold_labels, fold_preds = evaluate_model(
                     model=model, # Model with best weights loaded
                     test_loader=val_loader, # Using val_loader as test for fold evaluation
+                    device=device,
                     label_map=label_map,
                     save_name=f"{architecture_name}_fold_{fold_idx+1}",
                     dnn=arch_config["is_dnn"],
@@ -646,15 +685,25 @@ def run_cross_validation(arch_config, full_dataset, all_labels_for_skf, device, 
                     "fold_macro_precision": eval_report_dict["macro avg"]["precision"],
                     "fold_macro_recall": eval_report_dict["macro avg"]["recall"],
                     "fold_macro_f1": eval_report_dict["macro avg"]["f1-score"],
+                    "fold_weighted_precision": eval_report_dict["weighted avg"]["precision"],
+                    "fold_weighted_recall": eval_report_dict["weighted avg"]["recall"],
                     "fold_weighted_f1": eval_report_dict["weighted avg"]["f1-score"],
                     "fold_mcc": eval_report_dict["mcc"]
                 })
 
+                # Log individual class metrics for the child run
+                for class_idx in range(num_classes): # Assuming num_classes is defined globally or passed
+                    class_str = str(class_idx)
+                    mlflow.log_metrics({
+                        f"fold_precision_{class_str}": eval_report_dict[class_str]["precision"],
+                        f"fold_recall_{class_str}": eval_report_dict[class_str]["recall"],
+                        f"fold_f1_{class_str}": eval_report_dict[class_str]["f1-score"],
+                        f"fold_support_{class_str}": eval_report_dict[class_str]["support"],
+                    })
+
                 # Log evaluation plots to child run
-                mlflow.log_artifact(pr_plot_path, artifact_path="evaluation_plots_per_fold")
-                mlflow.log_artifact(cm_plot_path, artifact_path="evaluation_plots_per_fold")
-                os.remove(pr_plot_path) # Clean up
-                os.remove(cm_plot_path) # Clean up
+                mlflow.log_artifact(pr_plot_path, artifact_path="evaluation_plots")
+                mlflow.log_artifact(cm_plot_path, artifact_path="evaluation_plots")
                 print(f"  Logged evaluation plots for Fold {fold_idx+1}")
 
                 # Store this fold's aggregated evaluation report for parent aggregation
@@ -662,11 +711,18 @@ def run_cross_validation(arch_config, full_dataset, all_labels_for_skf, device, 
                 
                 # Store epoch-wise metrics for the parent plot
                 metrics_for_plotting.append({
-                    'train_loss': train_output['train_losses'],
-                    'val_loss': train_output['val_losses'],
-                    'train_f1': train_output['train_f1s'],
-                    'val_f1': train_output['val_f1s']
+                    'train_loss': train_losses,
+                    'val_loss': val_losses,
+                    'train_f1': train_f1s,
+                    'val_f1': val_f1s,
+                    'fold_labels': fold_labels,
+                    'fold_preds': fold_preds
                 })
+
+                # Collect out-of-fold labels and predictions
+                overall_oof_labels.extend(fold_labels)
+                overall_oof_preds.extend(fold_preds)
+
 
         # --- Aggregate and Log Metrics at Parent Run Level ---
         print(f"\nAggregating results for {architecture_name} across {n_splits} folds...")
@@ -676,6 +732,8 @@ def run_cross_validation(arch_config, full_dataset, all_labels_for_skf, device, 
         avg_macro_recall = np.mean([r["macro avg"]["recall"] for r in fold_final_reports])
         avg_macro_f1 = np.mean([r["macro avg"]["f1-score"] for r in fold_final_reports])
         avg_weighted_f1 = np.mean([r["weighted avg"]["f1-score"] for r in fold_final_reports])
+        avg_weighted_recall = np.mean([r["weighted avg"]["recall"] for r in fold_final_reports])
+        avg_weighted_precision = np.mean([r["weighted avg"]["precision"] for r in fold_final_reports])
         avg_mcc = np.mean([r["mcc"] for r in fold_final_reports])
 
         # Log aggregated metrics to the parent run
@@ -685,16 +743,102 @@ def run_cross_validation(arch_config, full_dataset, all_labels_for_skf, device, 
             "avg_macro_recall": avg_macro_recall,
             "avg_macro_f1": avg_macro_f1,
             "avg_weighted_f1": avg_weighted_f1,
+            "avg_weighted_precision": avg_weighted_precision,
+            "avg_weighted_recall": avg_weighted_recall,
             "avg_mcc": avg_mcc
         })
+
+        # Log individual class average metrics for the parent run
+        for class_idx in range(num_classes):
+            class_str = str(class_idx)
+            mlflow.log_metrics({
+                f"avg_precision_{class_str}_folds": np.mean([r[class_str]["precision"] for r in fold_final_reports]),
+                f"avg_recall_{class_str}_folds": np.mean([r[class_str]["recall"] for r in fold_final_reports]),
+                f"avg_f1_{class_str}_folds": np.mean([r[class_str]["f1-score"] for r in fold_final_reports]),
+                f"avg_support_{class_str}_folds": np.mean([r[class_str]["support"] for r in fold_final_reports]),
+            })
         
         print(f"Overall Results for {architecture_name}:")
         print(f"  Avg Accuracy: {avg_accuracy:.4f}")
         print(f"  Avg Macro F1: {avg_macro_f1:.4f}")
+        print(f"  Avg Macro precision: {avg_macro_precision:.4f}")
+        print(f"  Avg Macro recall: {avg_macro_recall:.4f}")
         print(f"  Avg Weighted F1: {avg_weighted_f1:.4f}")
         print(f"  Avg MCC: {avg_mcc:.4f}")
+
+         # --- Perform final Out-of-Fold (OOF) evaluation using collected predictions ---
+        print(f"\nPerforming Overall Out-of-Fold Evaluation for {architecture_name}...")
+
+        # Convert lists to numpy arrays for sklearn metrics
+        overall_oof_labels_np = np.array(overall_oof_labels)
+        overall_oof_preds_np = np.array(overall_oof_preds)
+
+        # Calculate overall OOF metrics
+        overall_oof_report = classification_report(
+            overall_oof_labels_np, overall_oof_preds_np,
+            output_dict=True, zero_division=0
+        )
+        overall_oof_mcc = matthews_corrcoef(overall_oof_labels_np, overall_oof_preds_np)
+        overall_oof_report["mcc"] = overall_oof_mcc
+
+        # Log overall OOF metrics to the parent run
+        mlflow.log_metrics({
+            "overall_oof_accuracy": overall_oof_report["accuracy"],
+            "overall_oof_macro_precision": overall_oof_report["macro avg"]["precision"],
+            "overall_oof_macro_recall": overall_oof_report["macro avg"]["recall"],
+            "overall_oof_macro_f1": overall_oof_report["macro avg"]["f1-score"],
+            "overall_oof_weighted_precision": overall_oof_report["weighted avg"]["precision"],
+            "overall_oof_weighted_recall": overall_oof_report["weighted avg"]["recall"],
+            "overall_oof_weighted_f1": overall_oof_report["weighted avg"]["f1-score"],
+            "overall_oof_mcc": overall_oof_report["mcc"]
+        })
+
+        # Log individual class overall OOF metrics
+        for class_idx in range(num_classes):
+            class_str = str(class_idx)
+            mlflow.log_metrics({
+                f"overall_oof_precision_{class_str}": overall_oof_report[class_str]["precision"],
+                f"overall_oof_recall_{class_str}": overall_oof_report[class_str]["recall"],
+                f"overall_oof_f1_{class_str}": overall_oof_report[class_str]["f1-score"],
+                f"overall_oof_support_{class_str}": overall_oof_report[class_str]["support"],
+            })
+
+        print(f"Overall Out-of-Fold Classification Report for {architecture_name}:")
+        print(classification_report(overall_oof_labels_np, overall_oof_preds_np,
+                                    labels=list(label_map.keys()), target_names=list(label_map.values()),
+                                    zero_division=0))
+        print(f"\nOverall Out-of-Fold MCC: {overall_oof_mcc:.4f}")
+
+        # Generate and log Overall OOF Confusion Matrix
+        temp_plot_dir = "/kaggle/working/plots"
+        os.makedirs(temp_plot_dir, exist_ok=True)
+        overall_oof_cm_filename = f"{architecture_name}_overall_oof_cm.png"
+        overall_oof_cm_path = os.path.join(temp_plot_dir, overall_oof_cm_filename)
+
+        overall_cm = confusion_matrix(overall_oof_labels_np, overall_oof_preds_np)
+        plt.figure(figsize=(12, 8))
+        labels = [label_map[i] for i in sorted(label_map.keys())]
+        disp = ConfusionMatrixDisplay(confusion_matrix=overall_cm, display_labels=labels)
+        disp.plot(cmap='Blues', values_format='d', ax=plt.gca())
+        plt.title(f'Overall Out-of-Fold Confusion Matrix - {architecture_name}', pad=20, fontsize=14)
+        plt.xticks(rotation=45, ha='right', rotation_mode='anchor')
+        plt.yticks(rotation=0)
+        plt.tight_layout()
+        plt.grid(False)
+        plt.gca().set_facecolor('#f8f8f8')
+        plt.savefig(overall_oof_cm_path, bbox_inches='tight', dpi=300)
+        plt.show() # Display plot
+        plt.close()
+
+        mlflow.log_artifact(overall_oof_cm_path, artifact_path="evaluation_plots")
+
+        mlflow.log_artifact(
+                    local_path=save_temp_file(metrics_for_plotting, f"{architecture_name}_metrics_for_plotting.pkl", "metrics_raw"),
+                    artifact_path="metrics_raw"
+                )
+
     
-    return {
-        'arch_name': architecture_name,
-        'fold_metrics': metrics_for_plotting
-    }
+return {
+    'arch_name': architecture_name,
+    'fold_metrics': metrics_for_plotting
+}
