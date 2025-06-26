@@ -104,14 +104,14 @@ ipython_config.py
 # pdm
 #   Similar to Pipfile.lock, it is generally recommended to include pdm.lock in version control.
 #pdm.lock
-#   pdm stores project-wide configurations in .pdm.toml, but it is recommended to not include it
+#   pdm stores Early Prototypes-wide configurations in .pdm.toml, but it is recommended to not include it
 #   in version control.
-#   https://pdm.fming.dev/latest/usage/project/#working-with-version-control
+#   https://pdm.fming.dev/latest/usage/Early Prototypes/#working-with-version-control
 .pdm.toml
 .pdm-python
 .pdm-build/
 
-# PEP 582; used by e.g. github.com/David-OConnor/pyflow and github.com/pdm-project/pdm
+# PEP 582; used by e.g. github.com/David-OConnor/pyflow and github.com/pdm-Early Prototypes/pdm
 __pypackages__/
 
 # Celery stuff
@@ -130,12 +130,12 @@ ENV/
 env.bak/
 venv.bak/
 
-# Spyder project settings
-.spyderproject
-.spyproject
+# Spyder Early Prototypes settings
+.spyderEarly Prototypes
+.spyEarly Prototypes
 
-# Rope project settings
-.ropeproject
+# Rope Early Prototypes settings
+.ropeEarly Prototypes
 
 # mkdocs documentation
 /site
@@ -160,32 +160,33 @@ cython_debug/
 #  and can be added to the global gitignore or merged into this file.  For a more nuclear
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
-Project/Word Embeddings Part 1/Data/Embeddings/fasttext_embeddings.model.wv.vectors_ngrams.npy
-Project/Word Embeddings Part 1/Data/Embeddings/nepali_embeddings_word2vec.txt
+Early Prototypes/Word Embeddings Part 1/Data/Embeddings/fasttext_embeddings.model.wv.vectors_ngrams.npy
+Early Prototypes/Word Embeddings Part 1/Data/Embeddings/nepali_embeddings_word2vec.txt
 
-Project/Word Embeddings Part 1/Data/Embeddings/finetuned_word2vec_embeddings.txt
+Early Prototypes/Word Embeddings Part 1/Data/Embeddings/finetuned_word2vec_embeddings.txt
 kaggle.json
 
-Project/Word Embeddings Part 2/Data/Embeddings/glove_word2vec_format.txt
-Project/Word Embeddings Part 2/Data/Embeddings/processed_tokenized_stemmed.glove
-Project/Word Embeddings Part 2/Data/Embeddings/processed_tokenized_stemmed.glove.txt
-Project/Word Embeddings Part 2/Data/Embeddings/fasttext_model.wv.vectors_ngrams.npy
+Early Prototypes/Word Embeddings Part 2/Data/Embeddings/glove_word2vec_format.txt
+Early Prototypes/Word Embeddings Part 2/Data/Embeddings/processed_tokenized_stemmed.glove
+Early Prototypes/Word Embeddings Part 2/Data/Embeddings/processed_tokenized_stemmed.glove.txt
+Early Prototypes/Word Embeddings Part 2/Data/Embeddings/fasttext_model.wv.vectors_ngrams.npy
 
 important Papers/
-Project/sentence_embeddings.drawio
-Project/SONAR/Sonar_diagram.drawio
-Project/WBD.drawio
-Project/Post-Defense/Data/fasttext_model
-Project/Post-Defense/Data/fasttext_model.wv.vectors_ngrams.npy
-Project/Post-Defense/Data/fasttext_scratch_dataset.csv
-Project/Post-Defense/Data/NepSa_minority_data.csv
-Project/Post-Defense/Data/NepSA++.csv
-Project/Post-Defense/Data/Word2vec_scratch_dataset.csv
-Project/Post-Defense/Data/Word2Vec_scratch_embeddings.txt
-Project/Post-Defense/Word Embeddings/Classification_with_word_embeddings_v2.ipynb
-Project/Post-Defense/Word Embeddings/dnn_classifier
-Project/Post-Defense/Word Embeddings/dnn_classifier.png
-Project/Post-Defense/Word Embeddings/dnn_classifier.pth
+Early Prototypes/sentence_embeddings.drawio
+Early Prototypes/SONAR/Sonar_diagram.drawio
+Early Prototypes/WBD.drawio
+Early Prototypes/Post-Defense/Data/fasttext_model
+Early Prototypes/Post-Defense/Data/fasttext_model.wv.vectors_ngrams.npy
+Early Prototypes/Post-Defense/Data/fasttext_scratch_dataset.csv
+Early Prototypes/Post-Defense/Data/NepSa_minority_data.csv
+Early Prototypes/Post-Defense/Data/NepSA++.csv
+Early Prototypes/Post-Defense/Data/Word2vec_scratch_dataset.csv
+Early Prototypes/Post-Defense/Data/Word2Vec_scratch_embeddings.txt
+Early Prototypes/Post-Defense/Word Embeddings/Classification_with_word_embeddings_v2.ipynb
+Early Prototypes/Post-Defense/Word Embeddings/dnn_classifier
+Early Prototypes/Post-Defense/Word Embeddings/dnn_classifier.png
+Early Prototypes/Post-Defense/Word Embeddings/dnn_classifier.pth
 
 nephased/word_embeddings_prototype/Data/NepSA++.csv
 nephased/word_embeddings_prototype/Models/
+raw_dataset/

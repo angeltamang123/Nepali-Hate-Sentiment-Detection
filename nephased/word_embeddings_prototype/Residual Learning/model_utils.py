@@ -14,6 +14,7 @@ import os
 import pickle
 import mlflow
 from torch.optim.lr_scheduler import CosineAnnealingLR
+from lstm import ResLSTM # must be on the same directory as this file
 
 def model_train(model, criterion, optimizer, train_loader, val_loader,device, scheduler=None, 
                 save_name=None, epochs=20, patience=3, early_stopping=False, dnn=False, model2=False):
@@ -616,7 +617,7 @@ def run_cross_validation(arch_config, full_dataset, all_labels_for_skf, device, 
             # --- Initialize Model, Optimizer, Criterion for this Fold ---
             # Each fold gets a fresh model instance to avoid data leakage
             model = arch_config["model_class"](**model_params_to_pass)
-            criterion = nn.CrossEntropyLoss(label_smoothing = arch_config["params"]["label_smoothing"])
+            criterion = nn.CrossEntropyLoss(label_smoothing = arch_config["params"].get("label_smoothing", 0.0))
             optimizer = torch.optim.Adam(model.parameters(), lr=arch_config["params"]["lr"]) if arch_config["is_dnn"] else torch.optim.AdamW(model.parameters(), lr=arch_config["params"]["lr"], weight_decay=arch_config["params"]["weight_decay"])
             
             scheduler = None 
@@ -837,8 +838,9 @@ def run_cross_validation(arch_config, full_dataset, all_labels_for_skf, device, 
                     artifact_path="metrics_raw"
                 )
 
+        return {
+            'arch_name': architecture_name,
+            'fold_metrics': metrics_for_plotting
+        }
+
     
-return {
-    'arch_name': architecture_name,
-    'fold_metrics': metrics_for_plotting
-}
